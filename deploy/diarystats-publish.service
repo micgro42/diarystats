@@ -1,0 +1,29 @@
+[Unit]
+Description=Save the changed diarystats pages in DokuWiki
+After=diarystats.service
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+ExecStart=/usr/local/lib/diarystats/diarystats-publish /var/lib/diarystats/rendered
+# For a farmer animal, set the animal and its data/pages directory, e.g.:
+# Environment=animal=wiki.example.org
+# Environment=PAGES_DIR=/var/www/farm/wiki.example.org/data/pages
+Environment=DOKUWIKI=/var/www/html/dokuwiki
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+# DokuWiki writes pages, attic, meta, locks and the change log below data/.
+# For an animal, add its data directory here.
+ReadWritePaths=/var/www/html/dokuwiki/data
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+CapabilityBoundingSet=

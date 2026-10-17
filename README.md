@@ -29,62 +29,105 @@ day, the feed wins.
 
 ## Server setup
 
-On the server, as the user that runs the job:
+The job runs as its own system user `diarystats`, not as your user. It runs a
+fast-changing unofficial library every day, so it must not have access to your
+SSH keys or other files. A second unit saves the pages in DokuWiki as `www-data`.
+No step needs sudo while the job runs.
+
+```
+diarystats.timer → diarystats.service          User=diarystats  fetch, archive, render to files
+                   └ diarystats-publish.service User=www-data    changed files → bin/dwpage.php
+```
+
+| Path | Content |
+|---|---|
+| `/opt/diarystats/venv` | the installed code |
+| `/etc/diarystats/config.toml`, `env` | config and secrets (root:diarystats 0640) |
+| `/var/lib/diarystats/lifelog` | the raw archive, a local git repo |
+| `/var/lib/diarystats/garmin-tokens` | Garmin tokens (0700) |
+| `/var/lib/diarystats/rendered` | the rendered pages, readable by www-data |
+
+### Install and update
 
 ```sh
 git clone https://github.com/micgro42/diarystats.git ~/git/diarystats
-curl -LsSf https://astral.sh/uv/install.sh | sh   # or: pipx install uv
-cd ~/git/diarystats && uv sync --no-dev
-
-mkdir -p ~/.config/diarystats && chmod 700 ~/.config/diarystats
-cp config.example.toml ~/.config/diarystats/config.toml
-install -m 600 /dev/null ~/.config/diarystats/env
-"${EDITOR:-nano}" ~/.config/diarystats/env   # add DIARYSTATS_RESCUETIME_KEY=...
-
-.venv/bin/diarystats login-garmin
-.venv/bin/diarystats dry-run --date "$(date -d yesterday +%F)" --dump /tmp/diarystats-fixtures
+curl -LsSf https://astral.sh/uv/install.sh | sh     # once, for your user
+cd ~/git/diarystats && uv lock                      # once; commit uv.lock
+sudo deploy/install.sh "$(command -v uv)"
+which php                                           # dwpage.php needs php-cli
 ```
 
-Check the dry-run output and the dumped JSON before you continue. The Garmin field
-names in `diarystats/metrics.py` match the library's typed models, but not yet live data.
+After a `git pull`, run `sudo deploy/install.sh "$(command -v uv)"` again. It does
+not change an existing config or env file. It overwrites the unit files, so put
+local changes into drop-ins (`sudo systemctl edit diarystats-publish`).
+
+Put the RescueTime key into `/etc/diarystats/env`:
+
+```sh
+sudoedit /etc/diarystats/env     # DIARYSTATS_RESCUETIME_KEY=...
+```
+
+If the diary is in a farmer animal, tell the publish unit:
+
+```sh
+sudo systemctl edit diarystats-publish
+# [Service]
+# Environment=animal=<animal name>
+# Environment=PAGES_DIR=<farm dir>/<animal>/data/pages
+# ReadWritePaths=<farm dir>/<animal>/data
+```
+
+### Manual commands
+
+Run them as the `diarystats` user:
+
+```sh
+alias ds='sudo -u diarystats /opt/diarystats/venv/bin/diarystats'
+ds login-garmin                                   # once, interactive
+ds dry-run --date "$(date -d yesterday +%F)"
+ds backfill --from 2026-10-10 --to 2026-10-16
+ds render --all --write                           # re-render from the archive
+sudo systemctl start diarystats-publish           # save changed pages in the wiki
+```
 
 `login-garmin` can log warnings about HTTP 429. The library tries several login
 methods in turn, and Cloudflare blocks some of them. Only a failure of all of them
 is an error.
 
-Enable the timer:
+To read the archive as your user, add yourself to the group and mark the repo as
+safe for git:
 
 ```sh
-sudo loginctl enable-linger "$USER"
-mkdir -p ~/.config/systemd/user
-ln -sf ~/git/diarystats/deploy/diarystats.{service,timer} ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable --now diarystats.timer
-systemctl --user list-timers diarystats.timer
-journalctl --user -u diarystats -n 50
+sudo usermod -aG diarystats "$USER"               # log in again after this
+git config --global --add safe.directory /var/lib/diarystats/lifelog
+git -C /var/lib/diarystats/lifelog log --oneline | head
 ```
 
-Update: `git pull && uv sync --no-dev`.
-
-### Writing to DokuWiki
-
-With `kind = "dwpage"` in `[sink]`, the job saves each stats page with DokuWiki's
-own `bin/dwpage.php`, as the web server user. This needs no remote API and no
-new HTTP endpoint. Each change is a normal minor edit by "diarystats" with the
-summary "auto: daily stats". Unchanged pages are not saved again.
+### Enable the timer
 
 ```sh
-sudo install -o root -g root -m 755 deploy/diarystats-wiki-commit /usr/local/bin/
-echo "$USER ALL=(www-data) NOPASSWD: /usr/local/bin/diarystats-wiki-commit" \
-  | sudo tee /etc/sudoers.d/diarystats && sudo chmod 440 /etc/sudoers.d/diarystats
-sudo visudo -c
-which php      # dwpage.php needs the PHP command line program (php-cli)
+sudo systemctl enable --now diarystats.timer
+systemctl list-timers diarystats.timer
+journalctl -u diarystats -u diarystats-publish -n 50
+journalctl -u diarystats -u diarystats-publish | grep ALERT:
 ```
 
-The wrapper accepts only page IDs that end in `:stats`. Do not allow `dwpage.php`
-itself through sudo: its `checkout` command can write to any file that www-data
-can write to. Then set `kind = "dwpage"` and run `diarystats render --all --write`
-to save all archived days.
+### Move from the per-user setup
+
+If you used the first version as your own user, move the data and remove the rest:
+
+```sh
+sudo rsync -a ~/lifelog/ /var/lib/diarystats/lifelog/
+sudo rsync -a ~/.config/diarystats/garmin-tokens/ /var/lib/diarystats/garmin-tokens/
+sudo chown -R diarystats:diarystats /var/lib/diarystats/lifelog /var/lib/diarystats/garmin-tokens
+sudo install -o root -g diarystats -m 0640 ~/.config/diarystats/env /etc/diarystats/env
+ds render --all --write                           # also checks that all of it works
+# when all is good:
+rm -rf ~/lifelog ~/.config/diarystats ~/.local/share/diarystats ~/git/diarystats/.venv
+```
+
+The archive is the only copy of RescueTime days older than 3 months. Keep
+`~/lifelog-import` until there is a backup.
 
 ## Development
 
@@ -94,8 +137,9 @@ uv run pytest      # or: python3 -m pytest
 ```
 
 garminconnect gets new releases every few days. Update on purpose with
-`uv lock --upgrade-package garminconnect`, then do a `dry-run` before the next timer run.
+`uv lock --upgrade-package garminconnect`, run `deploy/install.sh` again, then do a
+`dry-run` before the next timer run.
 
-This repository is public. Secrets live only in `~/.config/diarystats/`, and real
-data lives only in `~/lifelog`. The test fixtures are synthetic. Never commit real API
+This repository is public. Secrets live only in `/etc/diarystats/env` and
+`/var/lib/diarystats/garmin-tokens`, and real data lives only in `/var/lib/diarystats`. The test fixtures are synthetic. Never commit real API
 responses (see `tests/fixtures/README.md`).

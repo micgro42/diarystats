@@ -15,7 +15,7 @@ from .fetch.garmin import GarminSource, library_version, login_interactive
 from .fetch.rescuetime import RescueTimeSource
 from .importer import ImportError_, import_rescuetime
 from .pipeline import Fetcher, check_missing, day_range, process, render_day, write_rendered
-from .sink import make_sink
+from .sink import FileSink
 
 log = logging.getLogger("diarystats")
 
@@ -45,7 +45,7 @@ def cmd_run(cfg: Config, args: argparse.Namespace) -> int:
     today = _today(cfg)
     days = day_range(today - timedelta(days=args.days), today - timedelta(days=1))
     archive = Archive(cfg.archive_dir)
-    ok = process(cfg, days, _fetcher(cfg, alerter), archive, make_sink(cfg), alerter)
+    ok = process(cfg, days, _fetcher(cfg, alerter), archive, FileSink(cfg.sink_dir), alerter)
     check_missing(archive, alerter, today)
     return 0 if ok else 1
 
@@ -60,7 +60,7 @@ def cmd_backfill(cfg: Config, args: argparse.Namespace) -> int:
         days,
         _fetcher(cfg, alerter),
         archive,
-        make_sink(cfg),
+        FileSink(cfg.sink_dir),
         alerter,
         throttle=cfg.throttle_seconds,
     )
@@ -76,7 +76,7 @@ def cmd_render(cfg: Config, args: argparse.Namespace) -> int:
     else:
         days = day_range(args.start, args.end)
 
-    sink = make_sink(cfg)
+    sink = FileSink(cfg.sink_dir)
     for day in days:
         if args.write:
             write_rendered(cfg, archive, sink, day)
@@ -113,7 +113,7 @@ def cmd_import_rescuetime(cfg: Config, args: argparse.Namespace) -> int:
     if not days:
         log.warning("import: no rows")
         return 0
-    sink = make_sink(cfg)
+    sink = FileSink(cfg.sink_dir)
     for day in days:
         write_rendered(cfg, archive, sink, day)
     archive.commit(f"lifelog: import rescuetime {days[0]}..{days[-1]}")
@@ -130,8 +130,10 @@ def cmd_login_garmin(cfg: Config, args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="diarystats", description=__doc__)
-    parser.add_argument("--config", type=Path, help="config file (default: %(default)s)")
-    parser.add_argument("--env-file", type=Path, default=config_mod.DEFAULT_ENV_FILE)
+    configs = ", ".join(str(p) for p in config_mod.DEFAULT_CONFIGS)
+    env_files = ", ".join(str(p) for p in config_mod.DEFAULT_ENV_FILES)
+    parser.add_argument("--config", type=Path, help=f"config file (default: first of {configs})")
+    parser.add_argument("--env-file", type=Path, help=f"secrets (default: first of {env_files})")
     parser.add_argument("-v", "--verbose", action="store_true")
     sub = parser.add_subparsers(dest="command", required=True)
 

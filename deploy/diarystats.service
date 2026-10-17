@@ -1,10 +1,34 @@
 [Unit]
 Description=Fetch, archive and render daily Garmin and RescueTime stats
+Wants=network-online.target
+After=network-online.target
+# Start the publish step too. It waits until this unit is done, also if it fails.
+Wants=diarystats-publish.service
 
 [Service]
 Type=oneshot
-# Change the path if the clone is not in ~/git/diarystats.
-ExecStart=%h/git/diarystats/.venv/bin/diarystats run --days 3
-# Secrets: DIARYSTATS_RESCUETIME_KEY. The file must have mode 0600.
-EnvironmentFile=%h/.config/diarystats/env
-UMask=0077
+User=diarystats
+Group=diarystats
+ExecStart=/opt/diarystats/venv/bin/diarystats --config /etc/diarystats/config.toml --env-file /etc/diarystats/env run --days 3
+# Files 0640, directories 0750: the group can read the archive and the pages.
+UMask=0027
+
+# Hardening. The job needs only network access and /var/lib/diarystats.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/diarystats
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+CapabilityBoundingSet=

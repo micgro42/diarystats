@@ -11,12 +11,14 @@ from zoneinfo import ZoneInfo
 log = logging.getLogger(__name__)
 
 CONFIG_DIR = Path("~/.config/diarystats").expanduser()
-DEFAULT_CONFIG = CONFIG_DIR / "config.toml"
-DEFAULT_ENV_FILE = CONFIG_DIR / "env"
+SYSTEM_CONFIG_DIR = Path("/etc/diarystats")
+# The first file that exists is used.
+DEFAULT_CONFIGS = (CONFIG_DIR / "config.toml", SYSTEM_CONFIG_DIR / "config.toml")
+DEFAULT_ENV_FILES = (CONFIG_DIR / "env", SYSTEM_CONFIG_DIR / "env")
 
 RESCUETIME_KEY_VAR = "DIARYSTATS_RESCUETIME_KEY"
 
-KNOWN_SINKS = ("file", "dwpage")
+KNOWN_SINKS = ("file",)
 
 # The page name strategies of the yearbox plugin, which creates the diary
 # pages. Keys are the values of its "namestructure" setting. The plugin uses
@@ -47,8 +49,6 @@ class Config:
     garmin_tokenstore: Path
     sink_kind: str
     sink_dir: Path
-    dokuwiki_pages_dir: Path
-    dwpage_command: tuple[str, ...]
     alert_backends: tuple[str, ...]
 
     def page_id(self, day: date) -> str:
@@ -67,10 +67,10 @@ def _path(value: str) -> Path:
 
 
 def load(path: Path | None = None) -> Config:
-    """Load the config file. Use defaults if the default file does not exist."""
+    """Load the config file. Use defaults if no default file exists."""
     if path is None:
-        path = DEFAULT_CONFIG
-        raw = tomllib.loads(path.read_text()) if path.exists() else {}
+        path = next((p for p in DEFAULT_CONFIGS if p.exists()), None)
+        raw = tomllib.loads(path.read_text()) if path else {}
     else:
         try:
             raw = tomllib.loads(path.read_text())
@@ -104,23 +104,22 @@ def load(path: Path | None = None) -> Config:
         garmin_tokenstore=_path(garmin.get("tokenstore", str(CONFIG_DIR / "garmin-tokens"))),
         sink_kind=sink_kind,
         sink_dir=_path(sink.get("dir", "~/.local/share/diarystats/rendered")),
-        dokuwiki_pages_dir=_path(sink.get("pages_dir", "/var/www/html/dokuwiki/data/pages")),
-        dwpage_command=tuple(
-            sink.get(
-                "command",
-                ["sudo", "-n", "-u", "www-data", "/usr/local/bin/diarystats-wiki-commit"],
-            )
-        ),
         alert_backends=tuple(alert.get("backends", ["log"])),
     )
 
 
-def load_env_file(path: Path = DEFAULT_ENV_FILE) -> None:
-    """Read KEY=VALUE lines into os.environ. Existing variables have priority."""
-    if not path.exists():
+def load_env_file(path: Path | None = None) -> None:
+    """Read KEY=VALUE lines into os.environ. Existing variables have priority.
+
+    Without a path, use the first of DEFAULT_ENV_FILES that exists.
+    """
+    if path is None:
+        path = next((p for p in DEFAULT_ENV_FILES if p.exists()), None)
+    if path is None or not path.exists():
         return
-    if path.stat().st_mode & 0o077:
-        log.warning("%s is readable by other users. Set mode 0600.", path)
+    # The system setup uses root:diarystats 0640, so only check "other".
+    if path.stat().st_mode & 0o007:
+        log.warning("%s is readable by all users. Remove the access for others.", path)
     for line in path.read_text().splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:

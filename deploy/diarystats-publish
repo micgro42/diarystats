@@ -1,0 +1,44 @@
+#!/bin/bash
+# Save the changed stats pages from the rendered directory in DokuWiki.
+#
+# Run as the web server user (diarystats-publish.service), so that DokuWiki
+# owns its files. This script reads only the rendered text, never the archive
+# or the tokens.
+#
+# Environment:
+#   DOKUWIKI   DokuWiki directory (default /var/www/html/dokuwiki)
+#   PAGES_DIR  data/pages of the wiki (default $DOKUWIKI/data/pages)
+#   animal     farmer plugin: the animal to write to (name or URL), if any
+set -euo pipefail
+
+RENDERED="${1:?usage: diarystats-publish RENDERED_DIR}"
+DOKUWIKI="${DOKUWIKI:-/var/www/html/dokuwiki}"
+PAGES_DIR="${PAGES_DIR:-$DOKUWIKI/data/pages}"
+
+saved=0
+failed=0
+while IFS= read -r -d '' file; do
+    rel="${file#"$RENDERED"/}"
+    rel="${rel%.txt}"
+    page="${rel//\//:}"
+    # Write only stats subpages, whatever else is in the directory.
+    if [[ ! "$page" =~ ^[a-z0-9_-]+(:[a-z0-9_-]+)*:stats$ ]]; then
+        echo "diarystats-publish: skip $file" >&2
+        continue
+    fi
+    # DokuWiki also skips unchanged text. This check avoids the page lock.
+    if cmp -s "$file" "$PAGES_DIR/$rel.txt"; then
+        continue
+    fi
+    if php "$DOKUWIKI/bin/dwpage.php" --user diarystats \
+        commit --message "auto: daily stats" --trivial "$file" "$page"; then
+        saved=$((saved + 1))
+    else
+        failed=$((failed + 1))
+        # Keep the "ALERT:" prefix. Other tools grep the journal for it.
+        echo "ALERT: diarystats: cannot save $page in DokuWiki" >&2
+    fi
+done < <(find "$RENDERED" -type f -name '*.txt' -print0 | sort -z)
+
+echo "diarystats-publish: $saved saved, $failed failed"
+[[ $failed -eq 0 ]]
