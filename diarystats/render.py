@@ -84,7 +84,11 @@ def _garmin_lines(g: GarminMetrics, note: str, tz: ZoneInfo) -> list[str]:
 
     return [
         _line("Sleep", sleep, note),
-        _line("HRV (overnight)", [hrv, f"**Resting HR:** {_num(g.resting_hr)}"], note),
+        _line(
+            "HRV (overnight)",
+            [hrv, f"**Resting HR:** {_num(g.resting_hr)}", f"**Sleep HR:** {_num(g.sleep_hr_avg)}"],
+            note,
+        ),
         _line("Body Battery", [battery], note),
         _line("Stress avg", [_num(g.stress_avg), f"**Steps:** {_num(g.steps)}"], note),
     ]

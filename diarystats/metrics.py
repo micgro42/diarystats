@@ -44,6 +44,7 @@ class GarminMetrics:
     hrv_overnight: int | None = None
     hrv_status: str | None = None
     resting_hr: int | None = None
+    sleep_hr_avg: int | None = None
     bb_max: int | None = None
     bb_min: int | None = None
     bb_charged: int | None = None
@@ -102,6 +103,7 @@ def garmin_metrics(files: dict[str, Any]) -> GarminMetrics:
             _get(stats, "restingHeartRate"),
             _get(files, "sleep", "restingHeartRate"),
         ),
+        sleep_hr_avg=_get(sleep, "avgHeartRate"),
         bb_max=_get(stats, "bodyBatteryHighestValue"),
         bb_min=_get(stats, "bodyBatteryLowestValue"),
         bb_charged=_get(stats, "bodyBatteryChargedValue"),

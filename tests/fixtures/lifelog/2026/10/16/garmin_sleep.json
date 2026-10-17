@@ -6,6 +6,7 @@
     "lightSleepSeconds": 13980,
     "remSleepSeconds": 6000,
     "awakeSleepSeconds": 1080,
+    "avgHeartRate": 56.0,
     "sleepStartTimestampGMT": 1792100460000,
     "sleepEndTimestampGMT": 1792126380000,
     "sleepScores": {"overall": {"value": 78, "qualifierKey": "FAIR"}}

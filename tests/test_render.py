@@ -8,7 +8,7 @@ DAY = date(2026, 10, 16)
 EXPECTED_FULL = """\
 ==== Stats ====
   * **Sleep:** 7:12 h (score 78, fair) · deep 1:21 · REM 1:40 · light 3:53 · awake 0:18 · 23:41–06:53
-  * **HRV (overnight):** 52 ms (balanced) · **Resting HR:** 51
+  * **HRV (overnight):** 52 ms (balanced) · **Resting HR:** 51 · **Sleep HR:** 56
   * **Body Battery:** max 84 / min 22 (+61 / −62)
   * **Stress avg:** 31 · **Steps:** 9,412
   * **RescueTime:** 8:05 h · pulse 71 · productive 66 % · neutral 20 % · distracting 9 %
@@ -31,7 +31,7 @@ def test_sleep_not_synced(cfg, lifelog):
     text = render_day(cfg, archive, DAY, data)
     assert "**Sleep:** — ((Garmin data incomplete, maybe not synced yet))" in text
     # HRV falls back to nothing, resting HR still comes from the daily stats.
-    assert "**HRV (overnight):** — · **Resting HR:** 51 ((" in text
+    assert "**HRV (overnight):** — · **Resting HR:** 51 · **Sleep HR:** — ((" in text
     assert "**Steps:** 9,412\n" in text
     assert " 0:00" not in text
 
