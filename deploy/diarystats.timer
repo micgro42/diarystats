@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily diarystats run
+
+[Timer]
+# Keep the timezone explicit. The server clock can be on UTC.
+OnCalendar=*-*-* 04:30 Europe/Berlin
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target

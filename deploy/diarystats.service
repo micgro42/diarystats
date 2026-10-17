@@ -1,0 +1,9 @@
+[Unit]
+Description=Fetch, archive and render daily Garmin and RescueTime stats
+
+[Service]
+Type=oneshot
+ExecStart=%h/diarystats/.venv/bin/diarystats run --days 3
+# Secrets: DIARYSTATS_RESCUETIME_KEY. The file must have mode 0600.
+EnvironmentFile=%h/.config/diarystats/env
+UMask=0077

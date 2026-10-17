@@ -1,0 +1,22 @@
+[project]
+name = "diarystats"
+version = "0.1.0"
+description = "Archive daily Garmin and RescueTime data and render it for a DokuWiki diary"
+requires-python = ">=3.12"
+dependencies = [
+    # The library changes often. uv.lock pins the exact version.
+    "garminconnect>=0.3.19,<0.4",
+]
+
+[project.scripts]
+diarystats = "diarystats.__main__:main"
+
+[dependency-groups]
+dev = ["pytest"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

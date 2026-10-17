@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+dist/
+# Local config and secrets. Never commit them.
+config.toml
+*.env
+.idea/
+# Secrets, tokens and real data. They live outside the repo by design.
+# These patterns are a second line of defence.
+env
+.env*
+garmin-tokens/
+garmin_tokens.json
+oauth*_token.json
+*-fixtures/
+dump/
+lifelog/
+!tests/fixtures/lifelog/

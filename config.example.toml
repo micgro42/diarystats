@@ -1,0 +1,32 @@
+# Copy to ~/.config/diarystats/config.toml and adapt.
+# Secrets do not go here. Put them in ~/.config/diarystats/env (mode 0600):
+#   DIARYSTATS_RESCUETIME_KEY=...
+
+timezone = "Europe/Berlin"
+archive_dir = "~/lifelog"
+# Pause between days during a backfill, in seconds.
+throttle_seconds = 3
+
+[diary]
+# The same two values as in the today plugin tag: {today <namespace> <format>}
+# format uses PHP date() characters. Supported: Y y m n d j, and \ to escape a letter.
+namespace = "appreciation"
+format = "Y:m:Y-m-d"
+stats_suffix = ":stats"
+
+[links]
+# Optional deep links in the rendered snippet. {date} is YYYY-MM-DD.
+# Leave out or set to "" to omit a link.
+garmin = "https://connect.garmin.com/modern/sleep/{date}"
+rescuetime = "https://www.rescuetime.com/dashboard/for/the/day/of/{date}"
+
+[garmin]
+tokenstore = "~/.config/diarystats/garmin-tokens"
+
+[sink]
+kind = "file"
+# Keep this outside archive_dir: rendered text is derived data.
+dir = "~/.local/share/diarystats/rendered"
+
+[alert]
+backends = ["log"]

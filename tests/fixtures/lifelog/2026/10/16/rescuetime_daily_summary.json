@@ -1,0 +1,22 @@
+{
+  "id": 1792101600,
+  "date": "2026-10-16",
+  "productivity_pulse": 71,
+  "very_productive_percentage": 54.2,
+  "productive_percentage": 12.1,
+  "neutral_percentage": 20.3,
+  "distracting_percentage": 5.0,
+  "very_distracting_percentage": 4.1,
+  "all_productive_percentage": 66.3,
+  "all_distracting_percentage": 9.1,
+  "uncategorized_percentage": 4.3,
+  "total_hours": 8.0833,
+  "very_productive_hours": 4.38,
+  "all_distracting_hours": 0.74,
+  "uncategorized_hours": 0.35,
+  "software_development_hours": 4.1667,
+  "communication_and_scheduling_hours": 1.0833,
+  "reference_and_learning_hours": 0.8333,
+  "news_hours": 0.25,
+  "entertainment_hours": 0.0
+}
