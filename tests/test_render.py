@@ -12,7 +12,7 @@ EXPECTED_FULL = """\
   * **Body Battery:** max 84 / min 22 (+61 / −62)
   * **Stress avg:** 31 · **Steps:** 9,412
   * **RescueTime:** 8:05 h · pulse 71 · productive 66 % · neutral 20 % · distracting 9 %
-  * **Top categories:** Software Development 4:10 · Communication and Scheduling 1:05 · Reference and Learning 0:50
+  * **Top categories:** Software Development 4:10 · Communication & Scheduling 1:05 · Reference & Learning 0:50
   * //Raw data: lifelog/2026/10/16// · [[https://connect.garmin.com/modern/sleep/2026-10-16|Garmin]]
 """
 

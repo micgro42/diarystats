@@ -146,7 +146,25 @@ class RescueTimeMetrics:
         return self.total_hours is not None
 
 
+# Feed keys of the RescueTime top-level categories, mapped to the names that
+# /anapi/data exports use. Use the same names for both sources.
+_CATEGORY_NAMES = {
+    "business": "Business",
+    "communication_and_scheduling": "Communication & Scheduling",
+    "design_and_composition": "Design & Composition",
+    "entertainment": "Entertainment",
+    "news": "News & Opinion",
+    "reference_and_learning": "Reference & Learning",
+    "shopping": "Shopping",
+    "social_networking": "Social Networking",
+    "software_development": "Software Development",
+    "utilities": "Utilities",
+}
+
+
 def _category_label(key: str) -> str:
+    if key in _CATEGORY_NAMES:
+        return _CATEGORY_NAMES[key]
     words = key.split("_")
     return " ".join(w if w == "and" else w.capitalize() for w in words)
 
