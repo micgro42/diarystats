@@ -66,6 +66,9 @@ class DwpageSink:
                 return False
         except FileNotFoundError:
             pass
+        except PermissionError:
+            # DokuWiki skips the save of unchanged text itself.
+            log.debug("sink: cannot read %s, skip the compare", path)
         try:
             result = self.run(
                 [*self.command, page_id],

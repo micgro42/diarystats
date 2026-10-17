@@ -51,3 +51,17 @@ def test_dwpage_failure_raises_oserror(tmp_path):
     run = FakeRun(returncode=1, stderr="Page is already locked by another user")
     with pytest.raises(OSError, match="locked"):
         DwpageSink(tmp_path, ("wrapper",), run=run).write("a:stats", "x\n")
+
+
+def test_dwpage_saves_if_page_is_not_readable(tmp_path):
+    page = "a:stats"
+    path = tmp_path / "a/stats.txt"
+    path.parent.mkdir()
+    path.write_text("same\n")
+    path.chmod(0)
+    run = FakeRun()
+    try:
+        assert DwpageSink(tmp_path, ("wrapper",), run=run).write(page, "same\n") is True
+    finally:
+        path.chmod(0o644)
+    assert len(run.calls) == 1
