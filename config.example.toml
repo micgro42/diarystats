@@ -8,10 +8,14 @@ archive_dir = "~/lifelog"
 throttle_seconds = 3
 
 [diary]
-# The same two values as in the today plugin tag: {today <namespace> <format>}
-# format uses PHP date() characters. Supported: Y y m n d j, and \ to escape a letter.
+# The same values as for the yearbox plugin, which creates the diary pages:
+# namestructure from its setting in conf/local.php
+# ($conf['plugin']['yearbox']['namestructure']), namespace and name from the
+# tag {{yearbox>ns=...;name=...}}.
+# namestructure: default, separatedCompletely, YearMonthSeperatedNS or YearNS.
 namespace = "appreciation"
-format = "Y:m:Y-m-d"
+namestructure = "YearMonthSeperatedNS"
+name = ""
 stats_suffix = ":stats"
 
 [links]

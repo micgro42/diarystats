@@ -18,15 +18,14 @@ RESCUETIME_KEY_VAR = "DIARYSTATS_RESCUETIME_KEY"
 
 KNOWN_SINKS = ("file",)
 
-# The PHP date() format characters that diarystats supports. The today
-# plugin uses PHP date() for the date part of the page ID.
-_PHP_DATE = {
-    "Y": lambda d: f"{d:%Y}",
-    "y": lambda d: f"{d:%y}",
-    "m": lambda d: f"{d:%m}",
-    "n": lambda d: str(d.month),
-    "d": lambda d: f"{d:%d}",
-    "j": lambda d: str(d.day),
+# The page name strategies of the yearbox plugin, which creates the diary
+# pages. Keys are the values of its "namestructure" setting. The plugin uses
+# YearMonthCombinedNS for all other values.
+_YEARBOX = {
+    "separatedCompletely": lambda ns, y, m, d, name: f"{ns}:{y}:{m}:{d}",
+    "YearMonthSeperatedNS": lambda ns, y, m, d, name: f"{ns}:{y}:{m}:{name}{y}-{m}-{d}",
+    "YearNS": lambda ns, y, m, d, name: f"{ns}:{y}:{name}{y}-{m}-{d}",
+    "default": lambda ns, y, m, d, name: f"{ns}:{y}-{m}:{name}{y}-{m}-{d}",
 }
 
 
@@ -40,7 +39,8 @@ class Config:
     archive_dir: Path
     throttle_seconds: float
     diary_namespace: str
-    diary_format: str
+    diary_namestructure: str
+    diary_name: str
     stats_suffix: str
     garmin_link: str
     rescuetime_link: str
@@ -52,27 +52,12 @@ class Config:
     def page_id(self, day: date) -> str:
         """Return the ID of the stats page for the diary page of the day.
 
-        The diary page ID is built as in the today plugin:
-        <namespace>:<date(format)>
+        The diary page ID is the same as the one of the yearbox plugin.
         """
-        base = f"{self.diary_namespace}:{php_date(self.diary_format, day)}"
+        strategy = _YEARBOX.get(self.diary_namestructure, _YEARBOX["default"])
+        name = f"{self.diary_name}-" if self.diary_name else ""
+        base = strategy(self.diary_namespace, f"{day:%Y}", f"{day:%m}", f"{day:%d}", name)
         return base.lstrip(":") + self.stats_suffix
-
-
-def php_date(fmt: str, day: date) -> str:
-    """Format the day like PHP date(). Support only the characters in _PHP_DATE."""
-    out = []
-    chars = iter(fmt)
-    for char in chars:
-        if char == "\\":
-            out.append(next(chars, ""))
-        elif char in _PHP_DATE:
-            out.append(_PHP_DATE[char](day))
-        elif char.isascii() and char.isalpha():
-            raise ConfigError(f"unsupported PHP date() character {char!r} in {fmt!r}")
-        else:
-            out.append(char)
-    return "".join(out)
 
 
 def _path(value: str) -> Path:
@@ -100,15 +85,17 @@ def load(path: Path | None = None) -> Config:
     if sink_kind not in KNOWN_SINKS:
         raise ConfigError(f"unknown sink kind: {sink_kind}")
 
-    diary_format = diary.get("format", "Y:m:Y-m-d")
-    php_date(diary_format, date(2000, 1, 1))  # Fail early on a bad format.
+    namestructure = diary.get("namestructure", "YearMonthSeperatedNS")
+    if namestructure not in _YEARBOX:
+        raise ConfigError(f"unknown yearbox namestructure: {namestructure}")
 
     return Config(
         timezone=ZoneInfo(raw.get("timezone", "Europe/Berlin")),
         archive_dir=_path(raw.get("archive_dir", "~/lifelog")),
         throttle_seconds=float(raw.get("throttle_seconds", 3)),
         diary_namespace=diary.get("namespace", "appreciation"),
-        diary_format=diary_format,
+        diary_namestructure=namestructure,
+        diary_name=diary.get("name", ""),
         stats_suffix=diary.get("stats_suffix", ":stats"),
         garmin_link=links.get("garmin", ""),
         rescuetime_link=links.get("rescuetime", ""),
