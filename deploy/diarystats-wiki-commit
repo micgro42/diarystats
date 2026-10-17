@@ -1,0 +1,29 @@
+#!/bin/bash
+# Save the text on stdin as a diary stats page with DokuWiki's dwpage.php.
+#
+# Install as root:root, mode 0755, in /usr/local/bin. Allow the job user to
+# run only this script as the web server user, in /etc/sudoers.d/diarystats:
+#   michael ALL=(www-data) NOPASSWD: /usr/local/bin/diarystats-wiki-commit
+#
+# Do not allow dwpage.php itself through sudo. Its checkout command can write
+# to any file that www-data can write to.
+set -euo pipefail
+
+DOKUWIKI=/var/www/html/dokuwiki
+AUTHOR=diarystats
+SUMMARY="auto: daily stats"
+
+page="${1:?usage: diarystats-wiki-commit PAGE_ID < text}"
+# Accept only stats subpages, e.g. appreciation:2026:10:2026-10-17:stats
+if [[ ! "$page" =~ ^[a-z0-9_-]+(:[a-z0-9_-]+)*:stats$ ]]; then
+    echo "diarystats-wiki-commit: refuse page ID: $page" >&2
+    exit 2
+fi
+
+# dwpage.php needs a file. /dev/stdin does not work: www-data cannot open
+# the pipe of the calling user again. Copy the open stdin to a private file.
+tmp=$(mktemp)
+trap 'rm -f "$tmp"' EXIT
+cat > "$tmp"
+
+php "$DOKUWIKI/bin/dwpage.php" --user "$AUTHOR" commit --message "$SUMMARY" --trivial "$tmp" "$page"

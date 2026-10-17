@@ -66,6 +66,26 @@ journalctl --user -u diarystats -n 50
 
 Update: `git pull && uv sync --no-dev`.
 
+### Writing to DokuWiki
+
+With `kind = "dwpage"` in `[sink]`, the job saves each stats page with DokuWiki's
+own `bin/dwpage.php`, as the web server user. This needs no remote API and no
+new HTTP endpoint. Each change is a normal minor edit by "diarystats" with the
+summary "auto: daily stats". Unchanged pages are not saved again.
+
+```sh
+sudo install -o root -g root -m 755 deploy/diarystats-wiki-commit /usr/local/bin/
+echo "$USER ALL=(www-data) NOPASSWD: /usr/local/bin/diarystats-wiki-commit" \
+  | sudo tee /etc/sudoers.d/diarystats && sudo chmod 440 /etc/sudoers.d/diarystats
+sudo visudo -c
+which php      # dwpage.php needs the PHP command line program (php-cli)
+```
+
+The wrapper accepts only page IDs that end in `:stats`. Do not allow `dwpage.php`
+itself through sudo: its `checkout` command can write to any file that www-data
+can write to. Then set `kind = "dwpage"` and run `diarystats render --all --write`
+to save all archived days.
+
 ## Development
 
 ```sh

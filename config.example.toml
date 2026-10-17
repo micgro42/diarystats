@@ -28,9 +28,13 @@ rescuetime = "https://www.rescuetime.com/dashboard/for/the/day/of/{date}"
 tokenstore = "~/.config/diarystats/garmin-tokens"
 
 [sink]
+# "file": write the pages to files in dir. "dwpage": save them in DokuWiki.
 kind = "file"
 # Keep this outside archive_dir: rendered text is derived data.
 dir = "~/.local/share/diarystats/rendered"
+# For kind = "dwpage". See deploy/diarystats-wiki-commit.
+pages_dir = "/var/www/html/dokuwiki/data/pages"
+command = ["sudo", "-n", "-u", "www-data", "/usr/local/bin/diarystats-wiki-commit"]
 
 [alert]
 backends = ["log"]

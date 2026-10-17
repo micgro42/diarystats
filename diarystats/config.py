@@ -16,7 +16,7 @@ DEFAULT_ENV_FILE = CONFIG_DIR / "env"
 
 RESCUETIME_KEY_VAR = "DIARYSTATS_RESCUETIME_KEY"
 
-KNOWN_SINKS = ("file",)
+KNOWN_SINKS = ("file", "dwpage")
 
 # The page name strategies of the yearbox plugin, which creates the diary
 # pages. Keys are the values of its "namestructure" setting. The plugin uses
@@ -47,6 +47,8 @@ class Config:
     garmin_tokenstore: Path
     sink_kind: str
     sink_dir: Path
+    dokuwiki_pages_dir: Path
+    dwpage_command: tuple[str, ...]
     alert_backends: tuple[str, ...]
 
     def page_id(self, day: date) -> str:
@@ -102,6 +104,13 @@ def load(path: Path | None = None) -> Config:
         garmin_tokenstore=_path(garmin.get("tokenstore", str(CONFIG_DIR / "garmin-tokens"))),
         sink_kind=sink_kind,
         sink_dir=_path(sink.get("dir", "~/.local/share/diarystats/rendered")),
+        dokuwiki_pages_dir=_path(sink.get("pages_dir", "/var/www/html/dokuwiki/data/pages")),
+        dwpage_command=tuple(
+            sink.get(
+                "command",
+                ["sudo", "-n", "-u", "www-data", "/usr/local/bin/diarystats-wiki-commit"],
+            )
+        ),
         alert_backends=tuple(alert.get("backends", ["log"])),
     )
 
