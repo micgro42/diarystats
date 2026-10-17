@@ -19,24 +19,12 @@ diarystats render --date D | --from D --to D | --all  [--write]   # offline
 
 ## Server setup
 
-There is no remote yet. One way that keeps the code off third-party hosts is a bare
-repo on the server:
+On the server, as the user that runs the job:
 
 ```sh
-# server
-git init --bare ~/git/diarystats.git
-# local
-git remote add server michael-grosse.net:git/diarystats.git
-git push server main
-# server
-git clone ~/git/diarystats.git ~/diarystats
-```
-
-Then, on the server, as the user that runs the job:
-
-```sh
+git clone https://github.com/micgro42/diarystats.git ~/git/diarystats
 curl -LsSf https://astral.sh/uv/install.sh | sh   # or: pipx install uv
-cd ~/diarystats && uv sync --no-dev
+cd ~/git/diarystats && uv sync --no-dev
 
 mkdir -p ~/.config/diarystats && chmod 700 ~/.config/diarystats
 cp config.example.toml ~/.config/diarystats/config.toml
@@ -48,14 +36,18 @@ install -m 600 /dev/null ~/.config/diarystats/env
 ```
 
 Check the dry-run output and the dumped JSON before you continue. The Garmin field
-names in `diarystats/metrics.py` are not verified yet.
+names in `diarystats/metrics.py` match the library's typed models, but not yet live data.
+
+`login-garmin` can log warnings about HTTP 429. The library tries several login
+methods in turn, and Cloudflare blocks some of them. Only a failure of all of them
+is an error.
 
 Enable the timer:
 
 ```sh
 sudo loginctl enable-linger "$USER"
 mkdir -p ~/.config/systemd/user
-ln -sf ~/diarystats/deploy/diarystats.{service,timer} ~/.config/systemd/user/
+ln -sf ~/git/diarystats/deploy/diarystats.{service,timer} ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now diarystats.timer
 systemctl --user list-timers diarystats.timer
