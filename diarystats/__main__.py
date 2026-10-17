@@ -13,6 +13,7 @@ from .archive import Archive, DayData
 from .config import Config
 from .fetch.garmin import GarminSource, library_version, login_interactive
 from .fetch.rescuetime import RescueTimeSource
+from .importer import ImportError_, import_rescuetime
 from .pipeline import Fetcher, check_missing, day_range, process, render_day, write_rendered
 from .sink import FileSink
 
@@ -102,6 +103,24 @@ def cmd_dry_run(cfg: Config, args: argparse.Namespace) -> int:
     return 1 if fetcher.failed else 0
 
 
+def cmd_import_rescuetime(cfg: Config, args: argparse.Namespace) -> int:
+    archive = Archive(cfg.archive_dir)
+    try:
+        days = import_rescuetime(archive, args.files)
+    except ImportError_ as e:
+        log.error("%s", e)
+        return 1
+    if not days:
+        log.warning("import: no rows")
+        return 0
+    sink = FileSink(cfg.sink_dir)
+    for day in days:
+        write_rendered(cfg, archive, sink, day)
+    archive.commit(f"lifelog: import rescuetime {days[0]}..{days[-1]}")
+    log.info("import: %d days, %s..%s", len(days), days[0], days[-1])
+    return 0
+
+
 def cmd_login_garmin(cfg: Config, args: argparse.Namespace) -> int:
     email = args.email or input("Garmin email: ").strip()
     login_interactive(cfg.garmin_tokenstore, email)
@@ -138,6 +157,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--date", type=_date, required=True)
     p.add_argument("--dump", type=Path, help="also save the raw responses in this directory")
     p.set_defaults(func=cmd_dry_run)
+
+    p = sub.add_parser(
+        "import-rescuetime", help="import /anapi/data exports (rt-interval-<kind>-*.json)"
+    )
+    p.add_argument("files", type=Path, nargs="+")
+    p.set_defaults(func=cmd_import_rescuetime)
 
     p = sub.add_parser("login-garmin", help="interactive one-time Garmin login")
     p.add_argument("--email")

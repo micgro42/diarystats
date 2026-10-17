@@ -15,7 +15,17 @@ diarystats dry-run --date 2026-10-16 [--dump DIR]   # fetch + print, write nothi
 diarystats run [--days 3]                      # daily: D-1..D-N
 diarystats backfill --from 2026-07-01 --to 2026-10-16
 diarystats render --date D | --from D --to D | --all  [--write]   # offline
+diarystats import-rescuetime rt-interval-*.json   # see below
 ```
+
+### RescueTime history
+
+The free plan keeps about 3 months of history. `daily_summary_feed` covers only
+about 14 days. Older days come from `/anapi/data` exports, one file per kind
+(`productivity`, `overview`, `category`, `activity`), named
+`rt-interval-<kind>-<date>.json`. RescueTime allows about one such request every
+5 minutes. The import computes the same numbers as the feed. If both exist for a
+day, the feed wins.
 
 ## Server setup
 

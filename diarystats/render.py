@@ -29,6 +29,11 @@ def _pct(value: float | None) -> str:
     return MISSING if value is None else f"{value:.0f} %"
 
 
+def _label(key: str) -> str:
+    """Make a Garmin qualifier key readable: "NOT_ENOUGH_DATA" → "not enough data"."""
+    return key.replace("_", " ").lower()
+
+
 def _clock(moment: datetime | None, tz: ZoneInfo) -> str:
     return MISSING if moment is None else f"{moment.astimezone(tz):%H:%M}"
 
@@ -51,7 +56,8 @@ def _line(label: str, parts: list[str], note: str) -> str:
 
 def _garmin_lines(g: GarminMetrics, note: str, tz: ZoneInfo) -> list[str]:
     if g.has_sleep:
-        score = f" (score {_num(g.sleep_score)})"
+        quality = f", {_label(g.sleep_quality)}" if g.sleep_quality else ""
+        score = f" (score {_num(g.sleep_score)}{quality})"
         sleep = [
             f"{_dur(g.sleep_seconds)} h{score}",
             f"deep {_dur(g.deep_seconds)}",
@@ -63,7 +69,11 @@ def _garmin_lines(g: GarminMetrics, note: str, tz: ZoneInfo) -> list[str]:
     else:
         sleep = [MISSING]
 
-    hrv = f"{_num(g.hrv_overnight)} ms" if g.hrv_overnight is not None else MISSING
+    if g.hrv_overnight is None:
+        hrv = MISSING
+    else:
+        status = f" ({_label(g.hrv_status)})" if g.hrv_status else ""
+        hrv = f"{_num(g.hrv_overnight)} ms{status}"
     if g.bb_max is None and g.bb_min is None:
         battery = MISSING
     else:
@@ -89,8 +99,8 @@ def _rescuetime_lines(r: RescueTimeMetrics, note: str) -> list[str]:
             [
                 f"{_hours(r.total_hours)} h",
                 f"pulse {_num(r.pulse)}",
-                f"very productive {_pct(r.very_productive_pct)}",
                 f"productive {_pct(r.productive_pct)}",
+                f"neutral {_pct(r.neutral_pct)}",
                 f"distracting {_pct(r.distracting_pct)}",
             ],
             note,

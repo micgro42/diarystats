@@ -3,10 +3,10 @@
 This module holds all knowledge about the field names in the API responses.
 If Garmin or RescueTime change their responses, change this module.
 
-The Garmin field names are not verified against real responses yet.
-Verify them with real fixtures before you trust the output.
+The field names were checked against live responses on 2026-10-17.
 """
 
+import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -34,6 +34,7 @@ def _timestamp(ms: Any) -> datetime | None:
 class GarminMetrics:
     sleep_seconds: int | None = None
     sleep_score: int | None = None
+    sleep_quality: str | None = None
     deep_seconds: int | None = None
     light_seconds: int | None = None
     rem_seconds: int | None = None
@@ -41,6 +42,7 @@ class GarminMetrics:
     sleep_start: datetime | None = None
     sleep_end: datetime | None = None
     hrv_overnight: int | None = None
+    hrv_status: str | None = None
     resting_hr: int | None = None
     bb_max: int | None = None
     bb_min: int | None = None
@@ -81,6 +83,7 @@ def garmin_metrics(files: dict[str, Any]) -> GarminMetrics:
     return GarminMetrics(
         sleep_seconds=sleep_seconds,
         sleep_score=_get(sleep, "sleepScores", "overall", "value"),
+        sleep_quality=_get(sleep, "sleepScores", "overall", "qualifierKey"),
         deep_seconds=_get(sleep, "deepSleepSeconds"),
         light_seconds=_get(sleep, "lightSleepSeconds"),
         rem_seconds=_get(sleep, "remSleepSeconds"),
@@ -90,6 +93,10 @@ def garmin_metrics(files: dict[str, Any]) -> GarminMetrics:
         hrv_overnight=_first(
             _get(hrv, "hrvSummary", "lastNightAvg"),
             _get(files, "sleep", "avgOvernightHrv"),
+        ),
+        hrv_status=_first(
+            _get(hrv, "hrvSummary", "status"),
+            _get(files, "sleep", "hrvStatus"),
         ),
         resting_hr=_first(
             _get(stats, "restingHeartRate"),
@@ -117,13 +124,20 @@ _NOT_CATEGORIES = {
     "uncategorized",
 }
 
+# Weights of the RescueTime productivity levels for the productivity pulse.
+# Checked against daily_summary_feed: the pulse is the weighted mean, rounded down.
+_PULSE_WEIGHTS = {2: 100, 1: 75, 0: 50, -1: 25, -2: 0}
+
+# Overview category names that the feed does not count as categories either.
+_NOT_CATEGORY_NAMES = {"Uncategorized"}
+
 
 @dataclass(frozen=True)
 class RescueTimeMetrics:
     total_hours: float | None = None
     pulse: int | None = None
-    very_productive_pct: float | None = None
     productive_pct: float | None = None
+    neutral_pct: float | None = None
     distracting_pct: float | None = None
     top_categories: tuple[tuple[str, float], ...] = ()
 
@@ -137,12 +151,7 @@ def _category_label(key: str) -> str:
     return " ".join(w if w == "and" else w.capitalize() for w in words)
 
 
-def rescuetime_metrics(files: dict[str, Any], top: int = 3) -> RescueTimeMetrics:
-    """Extract metrics from one row of the RescueTime daily_summary_feed."""
-    row = files.get("daily_summary")
-    if not isinstance(row, dict):
-        return RescueTimeMetrics()
-
+def _feed_categories(row: dict[str, Any]) -> list[tuple[str, float]]:
     categories = []
     for key, value in row.items():
         if not key.endswith("_hours"):
@@ -151,13 +160,83 @@ def rescuetime_metrics(files: dict[str, Any], top: int = 3) -> RescueTimeMetrics
         if name in _NOT_CATEGORIES or not isinstance(value, (int, float)) or value <= 0:
             continue
         categories.append((_category_label(name), float(value)))
-    categories.sort(key=lambda c: c[1], reverse=True)
+    return categories
 
+
+def _interval_rows(export: Any) -> list[tuple[float, Any]]:
+    """Return (seconds, kind value) for each row of an /anapi/data interval export."""
+    if not isinstance(export, dict):
+        return []
+    headers = export.get("row_headers", [])
+    try:
+        time_col = headers.index("Time Spent (seconds)")
+    except ValueError:
+        return []
+    kind_col = len(headers) - 1
+    return [(row[time_col], row[kind_col]) for row in export.get("rows", [])]
+
+
+def _sum_by_kind(export: Any) -> dict[Any, float]:
+    """Return the total seconds for each value of the kind column."""
+    sums: dict[Any, float] = {}
+    for seconds, kind in _interval_rows(export):
+        sums[kind] = sums.get(kind, 0) + seconds
+    return sums
+
+
+def _from_feed(row: dict[str, Any]) -> RescueTimeMetrics:
     return RescueTimeMetrics(
         total_hours=row.get("total_hours"),
         pulse=row.get("productivity_pulse"),
-        very_productive_pct=row.get("very_productive_percentage"),
-        productive_pct=row.get("productive_percentage"),
+        productive_pct=row.get("all_productive_percentage"),
+        neutral_pct=row.get("neutral_percentage"),
         distracting_pct=row.get("all_distracting_percentage"),
+    )
+
+
+def _from_interval(export: Any) -> RescueTimeMetrics:
+    by_level = _sum_by_kind(export)
+    total = sum(by_level.values())
+    if not total:
+        return RescueTimeMetrics()
+
+    def pct(*levels: int) -> float:
+        return 100 * sum(by_level.get(level, 0) for level in levels) / total
+
+    pulse = sum(_PULSE_WEIGHTS.get(level, 0) * s for level, s in by_level.items()) / total
+    return RescueTimeMetrics(
+        total_hours=total / 3600,
+        pulse=math.floor(pulse),
+        productive_pct=pct(2, 1),
+        neutral_pct=pct(0),
+        distracting_pct=pct(-1, -2),
+    )
+
+
+def rescuetime_metrics(files: dict[str, Any], top: int = 3) -> RescueTimeMetrics:
+    """Extract metrics from the RescueTime files of one day.
+
+    Use the daily_summary_feed row if there is one. Else use the imported
+    /anapi/data exports (interval_productivity, interval_overview).
+    """
+    row = files.get("daily_summary")
+    if isinstance(row, dict):
+        metrics = _from_feed(row)
+        categories = _feed_categories(row)
+    else:
+        metrics = _from_interval(files.get("interval_productivity"))
+        categories = [
+            (str(name), seconds / 3600)
+            for name, seconds in _sum_by_kind(files.get("interval_overview")).items()
+            if seconds > 0 and name not in _NOT_CATEGORY_NAMES
+        ]
+    categories.sort(key=lambda c: c[1], reverse=True)
+    return RescueTimeMetrics(
+        total_hours=metrics.total_hours,
+        pulse=metrics.pulse,
+        productive_pct=metrics.productive_pct,
+        neutral_pct=metrics.neutral_pct,
+        distracting_pct=metrics.distracting_pct,
         top_categories=tuple(categories[:top]),
     )
+

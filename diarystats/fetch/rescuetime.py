@@ -54,6 +54,9 @@ class RescueTimeSource:
                 raise RescueTimeError(f"invalid JSON: {e}") from None
             self.sleep(delay)
 
+        if isinstance(data, dict) and "message" in data:
+            # RescueTime sends rate limit messages with HTTP 200.
+            raise RescueTimeError(f"RescueTime says: {data['message']}")
         if not isinstance(data, list):
             raise RescueTimeError(f"unexpected response type: {type(data).__name__}")
         rows = {}

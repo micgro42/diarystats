@@ -7,11 +7,11 @@ DAY = date(2026, 10, 16)
 
 EXPECTED_FULL = """\
 ==== Stats ====
-  * **Sleep:** 7:12 h (score 78) · deep 1:21 · REM 1:40 · light 3:53 · awake 0:18 · 23:41–06:53
-  * **HRV (overnight):** 52 ms · **Resting HR:** 51
+  * **Sleep:** 7:12 h (score 78, fair) · deep 1:21 · REM 1:40 · light 3:53 · awake 0:18 · 23:41–06:53
+  * **HRV (overnight):** 52 ms (balanced) · **Resting HR:** 51
   * **Body Battery:** max 84 / min 22 (+61 / −62)
   * **Stress avg:** 31 · **Steps:** 9,412
-  * **RescueTime:** 8:05 h · pulse 71 · very productive 54 % · productive 12 % · distracting 9 %
+  * **RescueTime:** 8:05 h · pulse 71 · productive 66 % · neutral 20 % · distracting 9 %
   * **Top categories:** Software Development 4:10 · Communication and Scheduling 1:05 · Reference and Learning 0:50
   * //Raw data: lifelog/2026/10/16// · [[https://connect.garmin.com/modern/sleep/2026-10-16|Garmin]]
 """

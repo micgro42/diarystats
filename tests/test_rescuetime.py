@@ -54,3 +54,9 @@ def test_no_retry_on_auth_error_and_no_key_in_message():
     assert len(opener.calls) == 1
     assert "SECRET" not in str(e.value)
     assert e.value.__cause__ is None
+
+
+def test_message_with_http_200():
+    opener = _opener({"message": "Please wait 5 minutes."})
+    with pytest.raises(RescueTimeError, match="Please wait 5 minutes"):
+        RescueTimeSource("k", opener=opener, sleep=lambda s: None).fetch_summary()
