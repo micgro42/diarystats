@@ -108,8 +108,8 @@ git -C /var/lib/diarystats/lifelog log --oneline | head
 ```sh
 sudo systemctl enable --now diarystats.timer
 systemctl list-timers diarystats.timer
-journalctl -u diarystats -u diarystats-publish -n 50
-journalctl -u diarystats -u diarystats-publish | grep ALERT:
+sudo journalctl -u diarystats -u diarystats-publish -n 50
+sudo journalctl -u diarystats -u diarystats-publish | grep ALERT:
 ```
 
 ### Move from the per-user setup

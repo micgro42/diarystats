@@ -15,6 +15,15 @@ RENDERED="${1:?usage: diarystats-publish RENDERED_DIR}"
 DOKUWIKI="${DOKUWIKI:-/var/www/html/dokuwiki}"
 PAGES_DIR="${PAGES_DIR:-$DOKUWIKI/data/pages}"
 
+# Fail loudly if the directory cannot be read. Else a permission problem
+# looks like a day without changes.
+list=$(mktemp)
+trap 'rm -f "$list"' EXIT
+if ! find "$RENDERED" -type f -name '*.txt' -print0 > "$list"; then
+    echo "ALERT: diarystats: cannot read $RENDERED" >&2
+    exit 1
+fi
+
 saved=0
 failed=0
 while IFS= read -r -d '' file; do
@@ -38,7 +47,7 @@ while IFS= read -r -d '' file; do
         # Keep the "ALERT:" prefix. Other tools grep the journal for it.
         echo "ALERT: diarystats: cannot save $page in DokuWiki" >&2
     fi
-done < <(find "$RENDERED" -type f -name '*.txt' -print0 | sort -z)
+done < <(sort -z "$list")
 
 echo "diarystats-publish: $saved saved, $failed failed"
 [[ $failed -eq 0 ]]

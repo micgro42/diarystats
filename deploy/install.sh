@@ -30,7 +30,10 @@ if ! id diarystats >/dev/null 2>&1; then
 fi
 
 # 2. Directories.
-install -d -o diarystats -g diarystats -m 0750 "$STATE" "$STATE/lifelog"
+# Others may pass through the state directory, but not list it: www-data
+# must reach the rendered pages. The archive and the tokens stay closed.
+install -d -o diarystats -g diarystats -m 0711 "$STATE"
+install -d -o diarystats -g diarystats -m 0750 "$STATE/lifelog"
 install -d -o diarystats -g diarystats -m 0700 "$STATE/garmin-tokens"
 # www-data reads the rendered pages. The setgid bit gives new subdirectories
 # the same group.
